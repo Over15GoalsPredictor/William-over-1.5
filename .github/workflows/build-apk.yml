@@ -1,13 +1,15 @@
+
 name: Build Over 1.5 Predictor APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -28,6 +30,36 @@ jobs:
 
       - name: Extract project
         run: unzip -q Over15GoalsPredictor_Android_Starter.zip -d project
+
+      - name: Fix Java and Kotlin JVM targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("project/app/build.gradle.kts")
+          s = p.read_text()
+
+          if 'jvmTarget = "17"' not in s:
+              i = s.rfind("}")
+              if i < 0:
+                  raise SystemExit("Android configuration block not found")
+
+              settings = """
+          
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          """
+              s = s[:i] + settings + "\n" + s[i:]
+              p.write_text(s)
+
+          print("Java and Kotlin JVM target configuration checked.")
+          PY
 
       - name: Build APK
         run: gradle --no-daemon -p project :app:assembleDebug
